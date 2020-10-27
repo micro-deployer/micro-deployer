@@ -13,11 +13,11 @@ from model import Application, Device, DeviceDict, DeviceID
 
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
-        index: (field, display_func)
-        for index, (field, display_func) in enumerate((
-            ("is_known", None),
-            ("uid", lambda val: val.hex()),
-            ("is_available", None),
+        index: {Qt.EditRole: edit_field, Qt.DisplayRole: display_field}
+        for index, (edit_field, display_field) in enumerate((
+            ("is_known", "is_known"),
+            ("uid", "uid_hex"),
+            ("is_available", "is_available"),
         ))
     }
 
@@ -27,18 +27,13 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         key = list(self._data.keys())[index.row()]
-        field, display_func = self.columns[index.column()]
-        if role == Qt.DisplayRole:
-            value = getattr(self._data[key], field)
-            if display_func:
-                return display_func(value)
-            return value
-        return
+        field = self.columns[index.column()][role]
+        return getattr(self._data[key], field)
 
     def setData(self, index, value, role) -> bool:
         key = list(self._data.keys())[index.row()]
-        field, _ = self.columns[index.column()]
-        self._data.change(key, field, value)
+        field = self.columns[index.column()][role]
+        setattr(self._data[key], field, value)
         return True
 
     def rowCount(self, index):
