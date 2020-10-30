@@ -8,11 +8,7 @@ from model import Application, Device
 class DeviceStorage:
 
     def serialize(self, device):
-        return {
-            "ip": device.ip,
-            "is_available": device.is_available,
-            "is_known": device.is_known,
-        }
+        return {}
 
     @contextlib.contextmanager
     def _update(self):
@@ -24,31 +20,41 @@ class DeviceStorage:
             yield devices_dict
             json.dump(devices_dict, devices_file)
 
-    @subscribe.after(Application.devices.__delitem__)
-    def _on_device_delitem(self, _, device):
+    @subscribe(Application.devices.__delitem__)
+    def _on_device_delitem(self, _, device_uid):
         with self._update() as devices_dict:
-            del devices_dict[device.uid_hex]
+            devices_dict.pop(device_uid.hex(), None)
 
-    @subscribe.after(Application.devices.__setitem__)
+    @subscribe(Application.devices.__setitem__)
     def _on_device_change(self, devices, device):
         if not device.is_known:
             return
 
         with self._update() as devices_dict:
-            devices_dict[device.uid_hex] = self.serialize(device)
+            devices_dict[device.uid.hex()] = self.serialize(device)
 
-    @subscribe.after(Device.change)
+    @subscribe(Device.change)
     def _on_device_change(self, device):
-        try:
-            device.is_known
-        except Exception:
-            return
         with self._update() as devices_dict:
             if device.is_known:
-                devices_dict[device.uid_hex] = self.serialize(device)
+                devices_dict[device.uid.hex()] = self.serialize(device)
             else:
-                devices_dict.pop(device.uid_hex, None)
+                devices_dict.pop(device.uid.hex(), None)
 
+    print('before subscribe init')
+    @subscribe(Application.__init__)
+    def load(self, application):
+        with self._update() as devices_dict:
+            for device_uid_hex, device_dict in devices_dict.items():
+                device_uid = bytes.fromhex(device_uid_hex)
+                application.devices[device_uid] = Device(
+                    uid=device_uid,
+                    is_available=False,
+                    ip="",
+                    is_known=True
+                )
+
+# print(DeviceStorage)
 
 async def run(application):
     storage = DeviceStorage()
