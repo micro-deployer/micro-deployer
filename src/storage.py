@@ -7,9 +7,14 @@ from model import Application, Device
 
 
 def _serialize(device):
-    return {}
+    return {"name": device.name}
 
-
+def _deserialize(device_uid, device_dict):
+    return Device(
+        uid=device_uid,
+        name=device_dict["name"],
+        is_known=True
+    )
 @contextlib.contextmanager
 def _open(write=True):
     filename = Path('devices.json')
@@ -58,9 +63,4 @@ def load(application):
     with _open(write=False) as devices_dict:
         for device_uid_hex, device_dict in devices_dict.items():
             device_uid = bytes.fromhex(device_uid_hex)
-            application.devices[device_uid] = Device(
-                uid=device_uid,
-                is_available=False,
-                ip="",
-                is_known=True
-            )
+            application.devices[device_uid] = _deserialize(device_uid, device_dict)

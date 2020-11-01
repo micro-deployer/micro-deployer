@@ -6,7 +6,6 @@ from PySide2.QtCore import QModelIndex
 from PySide2.QtGui import QGuiApplication
 from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtQuickControls2 import QQuickStyle
-from PySide2.QtWidgets import QStyleFactory
 
 from cue import subscribe
 from model import Application, Device, DeviceDict, DeviceID
@@ -17,7 +16,8 @@ class TableModel(QtCore.QAbstractTableModel):
         index: (field_name, display_func)
         for index, (field_name, display_func) in enumerate((
             ("is_known", lambda x: x),
-            ("uid", lambda x: x.hex()),
+            ("name", lambda x: x),
+            ("uid", lambda x: x.hex(":", 1)),
             ("is_available", lambda x: x),
         ))
     }
@@ -61,6 +61,11 @@ class TableModel(QtCore.QAbstractTableModel):
         self.beginRemoveRows(QModelIndex(), row_index, row_index)
         self.endRemoveRows()
 
+    @subscribe.before(Device.change)
+    def on_device_change(self, device: Device) -> None:
+        row_index = list(self._data.keys()).index(device.uid)
+        self.beginRemoveRows(QModelIndex(), row_index, row_index)
+        self.endRemoveRows()
 
 class ApplicationProxy(QtCore.QObject):
     def __init__(self, application: Application) -> None:
