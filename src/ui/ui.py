@@ -2,10 +2,11 @@ import asyncio
 from pathlib import Path
 
 from PySide2 import QtCore
-from PySide2.QtCore import QModelIndex, Qt
+from PySide2.QtCore import QModelIndex
 from PySide2.QtGui import QGuiApplication
 from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtQuickControls2 import QQuickStyle
+from PySide2.QtWidgets import QStyleFactory
 
 from cue import subscribe
 from model import Application, Device, DeviceDict, DeviceID
@@ -13,11 +14,11 @@ from model import Application, Device, DeviceDict, DeviceID
 
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
-        index: {Qt.EditRole: edit_field, Qt.DisplayRole: display_field}
-        for index, (edit_field, display_field) in enumerate((
-            ("is_known", "is_known"),
-            ("uid", "uid_hex"),
-            ("is_available", "is_available"),
+        index: (field_name, display_func)
+        for index, (field_name, display_func) in enumerate((
+            ("is_known", lambda x: x),
+            ("uid", lambda x: x.hex()),
+            ("is_available", lambda x: x),
         ))
     }
 
@@ -27,13 +28,13 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         key = list(self._data.keys())[index.row()]
-        field = self.columns[index.column()][role]
-        return getattr(self._data[key], field)
+        field_name, display_func = self.columns[index.column()]
+        return display_func(getattr(self._data[key], field_name))
 
     def setData(self, index, value, role) -> bool:
         key = list(self._data.keys())[index.row()]
-        field = self.columns[index.column()][role]
-        setattr(self._data[key], field, value)
+        field_name, _ = self.columns[index.column()]
+        setattr(self._data[key], field_name, value)
         return True
 
     def rowCount(self, index):
@@ -43,7 +44,7 @@ class TableModel(QtCore.QAbstractTableModel):
     def columnCount(self, index):
         return len(self.columns)
 
-    @subscribe.after(Application.devices.__setitem__)
+    @subscribe(Application.devices.__setitem__)
     def on_devices_setitem(
         self,
         devices: DeviceDict,
@@ -79,13 +80,9 @@ class ApplicationProxy(QtCore.QObject):
 async def run(application: Application) -> None:
     app = QGuiApplication([])
     qml_filepath = str(Path(__file__).parent / "window.qml")
-    # qml_filepath = "./gallery/gallery.qml"
     engine = QQmlApplicationEngine()
 
     # bind model
-    # saved_devices = {b'<q\xbf\xab\x15D': Device(uid=b'<q\xbf\xab\x15D'.hex(), ip='192.168.0.192')}
-    # saved_devices = {}
-
     context = engine.rootContext()
     application_proxy = ApplicationProxy(application)
     context.setContextProperty("application", application_proxy)
