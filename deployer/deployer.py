@@ -5,20 +5,19 @@ import struct
 
 async def deploy(device):
     device.deployment_progress = 0
-    for i in range(100):
-        await asyncio.sleep(0.1)
+    async for filepath in _deploy(device.ip, device.port, [device.name]):
         device.deployment_progress += 1
-    return
 
+
+async def _deploy(ip, port, filepaths):
     reader, writer = await asyncio.open_connection(
-        device.ip, device.port
+        ip, port
     )
-    filepaths = [device.name]
 
     files_count_bytes = struct.pack('>B', len(filepaths))
     writer.write(files_count_bytes)
     for filepath in filepaths:
-        device.deployment_progress += 1
+        yield filepath
         filepath_length_bytes = struct.pack('>B', len(filepath))
         writer.write(filepath_length_bytes)
         filepath_bytes = filepath.encode()

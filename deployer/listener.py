@@ -6,7 +6,7 @@ import socket
 import struct
 from typing import Tuple
 
-from model import Application, DeviceID
+from deployer.model import Application, DeviceUID
 
 
 def _multicast_socket(multicast_group: str, port: int) -> socket.socket:
@@ -43,12 +43,11 @@ class Protocol:
     def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         advertise_sleep = data[0]
         port = int.from_bytes(data[1:3], byteorder="big", signed=False)
-        device_id = DeviceID(data[1:])
-        device = self.application.devices.add(device_id, ip=addr[0], port=port)
+        device_uid = DeviceUID(data[3:])
+        device = self.application.devices.add(device_uid, ip=addr[0], port=port)
         with contextlib.suppress(KeyError):
-            self.future_device_set_unavailable[device_id].cancel()
-        self.future_device_set_unavailable[
-            device_id] = asyncio.get_event_loop().call_later(
+            self.future_device_set_unavailable[device_uid].cancel()
+        self.future_device_set_unavailable[device_uid] = asyncio.get_event_loop().call_later(
             advertise_sleep * 2,
             device_set_unavailable,
             device

@@ -4,13 +4,13 @@ from typing import NewType, Optional
 
 from cue import CueDict, publisher, subscribe
 
-DeviceID = NewType("DeviceID", bytes)
+DeviceUID = NewType("DeviceUID", bytes)
 
 
 @publisher
 @dataclasses.dataclass
 class Device:
-    uid: DeviceID
+    uid: DeviceUID
     name: str = ""
     ip: str = ""
     port: int = 0

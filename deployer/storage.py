@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from cue import subscribe
-from model import Application, Device
+from deployer.model import Application, Device
 
 
 def _serialize(device):

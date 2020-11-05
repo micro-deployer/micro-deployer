@@ -8,8 +8,8 @@ from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtQuickControls2 import QQuickStyle
 
 from cue import subscribe
-import deployer
-from model import Application, Device, DeviceDict, DeviceID
+import deployer.deployer
+from deployer.model import Application, Device, DeviceDict, DeviceID
 
 
 class TableModel(QtCore.QAbstractTableModel):
