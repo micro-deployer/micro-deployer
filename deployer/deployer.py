@@ -1,33 +1,40 @@
 import asyncio
+from operator import attrgetter
 import os
+from pathlib import Path
 import struct
+from typing import AsyncIterator, Iterator, List
 
 
 async def deploy(device):
     device.deployment_progress = 0
-    async for filepath in _deploy(device.ip, device.port, [device.name]):
-        device.deployment_progress += 1
 
-
-async def _deploy(ip, port, filepaths):
-    reader, writer = await asyncio.open_connection(
-        ip, port
+    _, writer = await asyncio.open_connection(
+        device.ip, device.port
     )
 
-    files_count_bytes = struct.pack('>B', len(filepaths))
-    writer.write(files_count_bytes)
-    for filepath in filepaths:
-        yield filepath
-        filepath_length_bytes = struct.pack('>B', len(filepath))
-        writer.write(filepath_length_bytes)
-        filepath_bytes = filepath.encode()
-        writer.write(filepath_bytes)
-        with open(filepath, 'rb') as f:
-            file_length = os.fstat(f.fileno()).st_size
-            file_length_bytes = struct.pack('>H', file_length)
-            writer.write(file_length_bytes)
-            writer.write(f.read())
+    for filepath in _write(writer, device.root_path):
+        device.deployment_progress += 1
 
     writer.close()
     await writer.drain()
     await writer.wait_closed()
+
+
+def _write(writer, root_path: Path) -> Iterator[Path]:
+    paths = [path for path in root_path.glob('**/*') if path.is_file()]
+    files_count = len(paths)
+    files_count_bytes = struct.pack('>B', files_count)
+    writer.write(files_count_bytes)
+    for filepath in paths:
+        relative_path = filepath.relative_to(root_path)
+        yield relative_path
+        filepath_bytes = str(relative_path).encode()
+        filepath_length_bytes = struct.pack('>B', len(filepath_bytes))
+        writer.write(filepath_length_bytes)
+        writer.write(filepath_bytes)
+        with filepath.open('rb') as f:
+            file_length = os.fstat(f.fileno()).st_size
+            file_length_bytes = struct.pack('>H', file_length)
+            writer.write(file_length_bytes)
+            writer.write(f.read())

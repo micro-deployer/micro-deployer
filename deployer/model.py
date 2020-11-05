@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+from pathlib import Path
 from typing import NewType, Optional
 
 from cue import CueDict, publisher, subscribe
@@ -14,6 +15,7 @@ class Device:
     name: str = ""
     ip: str = ""
     port: int = 0
+    root_path: Optional[Path] = None
     is_known: bool = False
     is_available: bool = False
     deployment_progress: Optional[int] = None
