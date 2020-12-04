@@ -3,4 +3,3 @@ pytest
 pytest-asyncio
 pexpect
 mypy
-micropython

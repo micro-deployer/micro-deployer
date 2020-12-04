@@ -1,15 +1,15 @@
 import asyncio
 from pathlib import Path
 
-from PySide2 import QtCore
-from PySide2.QtCore import QModelIndex, Qt
-from PySide2.QtGui import QGuiApplication
-from PySide2.QtQml import QQmlApplicationEngine
-from PySide2.QtQuickControls2 import QQuickStyle
+from PySide6 import QtCore
+from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuickControls2 import QQuickStyle
 
 from cue import subscribe
 import deployer.deployer
-from deployer.model import Application, Device, DeviceDict, DeviceID
+from deployer.model import Application, Device, DeviceDict, DeviceUID
 
 
 class TableModel(QtCore.QAbstractTableModel):
@@ -66,7 +66,7 @@ class TableModel(QtCore.QAbstractTableModel):
     def on_devices_setitem(
         self,
         devices: DeviceDict,
-        device_id: DeviceID,
+        device_id: DeviceUID,
         _device: Device
     ) -> None:
         row_index = list(devices.keys()).index(device_id)
@@ -74,7 +74,7 @@ class TableModel(QtCore.QAbstractTableModel):
         self.endInsertRows()
 
     @subscribe.before(Application.devices.__delitem__)
-    def on_devices_delitem(self, devices: DeviceDict, device_id: DeviceID) -> None:
+    def on_devices_delitem(self, devices: DeviceDict, device_id: DeviceUID) -> None:
         row_index = list(devices.keys()).index(device_id)
         self.beginRemoveRows(QModelIndex(), row_index, row_index)
         self.endRemoveRows()
@@ -120,7 +120,7 @@ async def run(application: Application) -> None:
     # import_paths = engine.importPathList()
     # import_paths.append('/usr/lib/qt/qml')
     # engine.setImportPathList(import_paths)
-    QQuickStyle.setStyle('Fusion')
+    QQuickStyle.setStyle('Imagine')
     engine.load(qml_filepath)
 
     while application.is_running:

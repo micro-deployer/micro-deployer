@@ -39,7 +39,7 @@ ApplicationWindow {
                     text: model.display
                     selectByMouse: true
                     implicitWidth: 140
-                    onTextEdited: model.edit = text
+                    onAccepted: model.edit = text
                 }
             }
             DelegateChoice {

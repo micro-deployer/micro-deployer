@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 
 from cue import subscribe
+
 from deployer.model import Application, Device
 
 
 def _serialize(device):
     return {"name": device.name}
+
 
 def _deserialize(device_uid, device_dict):
     return Device(
@@ -15,6 +17,8 @@ def _deserialize(device_uid, device_dict):
         name=device_dict["name"],
         is_known=True
     )
+
+
 @contextlib.contextmanager
 def _open(write=True):
     filename = Path('devices.json')
