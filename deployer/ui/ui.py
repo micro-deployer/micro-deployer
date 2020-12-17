@@ -1,26 +1,48 @@
 import asyncio
+import dataclasses
 from pathlib import Path
+from typing import Any, Callable
 
 from PySide6 import QtCore
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtWidgets import QApplication
 
 from cue import subscribe
 import deployer.deployer
 from deployer.model import Application, Device, DeviceDict, DeviceUID
 
 
+@dataclasses.dataclass
+class Column:
+    label: str
+    field_name: str
+    _display_func: Callable[[Any], Any]
+
+    def _fallback_display_func(self, device):
+        if self.field_name:
+            return getattr(device, self.field_name)
+        return self.label
+
+    @property
+    def display_func(self):
+        return self._display_func or self._fallback_display_func
+
+
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
-        index: (field_name, display_func)
-        for index, (field_name, display_func) in enumerate((
-            ("is_known", lambda x: x),
-            ("name", lambda x: x),
-            ("uid", lambda x: x.hex(":", 1)),
-            ("is_available", lambda x: x),
-            ("deployment_progress", lambda x: x / 100 if x is not None else None),
+        index: Column(label, field_name, display_func)
+        for index, (label, field_name, display_func) in enumerate((
+            ("Saved", "is_known", None),
+            ("Name", "name", None),
+            ("UID", "uid", lambda device: device.uid.hex(":", 1)),
+            ("Root path", "root_path", lambda device: device.root_path or ""),
+            ("...", None, None),
+            ("Available", "is_available", None),
+            ("Deploy", "is_deployable", None),
+            # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
         ))
     }
 
@@ -30,30 +52,24 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         key = list(self._data.keys())[index.row()]
-        field_name, display_func = self.columns[index.column()]
-        return display_func(getattr(self._data[key], field_name))
+        column = self.columns[index.column()]
+        return column.display_func(self._data[key])
+
 
     def setData(self, index, value, role) -> bool:
         key = list(self._data.keys())[index.row()]
-        field_name, _ = self.columns[index.column()]
-        setattr(self._data[key], field_name, value)
+        column = self.columns[index.column()]
+        setattr(self._data[key], column.field_name, value)
         return True
 
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        """ Set the headers to be displayed. """
-        if role != Qt.DisplayRole:
-            return None
-
-        if orientation == Qt.Horizontal:
-            if section == 0:
-                return "Saved"
-            elif section == 1:
-                return "Name"
-            elif section == 2:
-                return "UID"
-            elif section == 3:
-                return "Deploy"
-        return None
+    # def headerData(self, section, orientation, role=Qt.DisplayRole):
+    #     """ Set the headers to be displayed. """
+    #     if role != Qt.DisplayRole:
+    #         return None
+    #
+    #     if orientation == Qt.Horizontal:
+    #         return self.columns[section].label
+    #     return None
 
     def rowCount(self, index):
         # The length of the outer list.
@@ -104,11 +120,11 @@ class ApplicationProxy(QtCore.QObject):
     def deploy(self, device_index: int):
         device_uid = list(self._application.devices.keys())[device_index]
         device = self._application.devices[device_uid]
-        asyncio.create_task(deployer.deploy(device))
+        asyncio.create_task(deployer.deployer.deploy(device))
 
 
 async def run(application: Application) -> None:
-    app = QGuiApplication([])
+    app = QApplication([])
     qml_filepath = str(Path(__file__).parent / "window.qml")
     engine = QQmlApplicationEngine()
 

@@ -24,6 +24,10 @@ class Device:
     def change(self):
         pass
 
+    @property
+    def is_deployable(self):
+        return self.is_available and bool(self.root_path)
+
 
 @subscribe(Device.uid)
 @subscribe(Device.ip)

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Window
 import QtQuick.Controls
+import Qt.labs.platform
 import Qt.labs.qmlmodels
 
 ApplicationWindow {
@@ -54,19 +55,41 @@ ApplicationWindow {
             }
             DelegateChoice {
                 column: 3
+                delegate: TextField {
+                    text: model.display
+                }
+            }
+            DelegateChoice {
+                column: 4
+                delegate: Button {
+                    text: model.display
+                    onClicked: function() {folderDialog.open()}
+                }
+            }
+            DelegateChoice {
+                column: 5
+                delegate: CheckBox {
+                    checked: model.display
+//                    enabled: false
+//                    onToggled: model.edit = checked
+//                    onValueChanged: application.devices.setData(0, {amount: value})
+                }
+            }
+            DelegateChoice {
+                column: 6
                 delegate: Button {
                     text: "Deploy"
                     enabled: model.display
                     onClicked: function() {this.enabled = false; application.deploy(model.row)}
                 }
             }
-            DelegateChoice {
-                column: 4
-                ProgressBar {
-                    value: model.display==null?0:model.display
-                    visible: model.display != null
-                }
-            }
+//            DelegateChoice {
+//                column: 6
+//                ProgressBar {
+//                    value: model.display==null?0:model.display
+//                    visible: model.display != null
+//                }
+//            }
         }
     }
     function listProperty(item)
@@ -74,4 +97,9 @@ ApplicationWindow {
         for (var p in item)
         console.log(p + ": " + item[p]);
     }
+    FolderDialog {
+        id: folderDialog
+        options: FolderDialog.ShowDirsOnly
+    }
 }
+
