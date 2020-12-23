@@ -18,30 +18,35 @@ from deployer.model import Application, Device, DeviceDict, DeviceUID
 @dataclasses.dataclass
 class Column:
     label: str
-    field_name: str
+    display_field_name: str
     _display_func: Callable[[Any], Any]
+    _edit_field_name: str
 
     def _fallback_display_func(self, device):
-        if self.field_name:
-            return getattr(device, self.field_name)
+        if self.display_field_name:
+            return getattr(device, self.display_field_name)
         return self.label
 
     @property
     def display_func(self):
         return self._display_func or self._fallback_display_func
 
+    @property
+    def edit_field_name(self):
+        return self._edit_field_name or self.display_field_name
+
 
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
-        index: Column(label, field_name, display_func)
-        for index, (label, field_name, display_func) in enumerate((
-            ("Saved", "is_known", None),
-            ("Name", "name", None),
-            ("UID", "uid", lambda device: device.uid.hex(":", 1)),
-            ("Root path", "root_path", lambda device: device.root_path or ""),
-            ("...", None, None),
-            ("Available", "is_available", None),
-            ("Deploy", "is_deployable", None),
+        index: Column(label, display_field_name, display_func, edit_field_name)
+        for index, (label, display_field_name, display_func, edit_field_name) in enumerate((
+            ("Saved", "is_known", None, None),
+            ("Name", "name", None, None),
+            ("UID", "uid", lambda device: device.uid.hex(":", 1), None),
+            ("Root path", "root_path", lambda device: device.root_path or "", None),
+            ("...", None, None, "root_path"),
+            ("Available", "is_available", None, None),
+            ("Deploy", "is_deployable", None, None),
             # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
         ))
     }
@@ -59,7 +64,7 @@ class TableModel(QtCore.QAbstractTableModel):
     def setData(self, index, value, role) -> bool:
         key = list(self._data.keys())[index.row()]
         column = self.columns[index.column()]
-        setattr(self._data[key], column.field_name, value)
+        setattr(self._data[key], column.edit_field_name, value)
         return True
 
     # def headerData(self, section, orientation, role=Qt.DisplayRole):

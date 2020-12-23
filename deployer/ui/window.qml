@@ -63,7 +63,7 @@ ApplicationWindow {
                 column: 4
                 delegate: Button {
                     text: model.display
-                    onClicked: function() {folderDialog.open()}
+                    onClicked: function() {model.edit = folderDialog.open()}
                 }
             }
             DelegateChoice {
