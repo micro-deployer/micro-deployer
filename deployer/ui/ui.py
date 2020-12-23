@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 from PySide6 import QtCore
 from PySide6.QtCore import QModelIndex
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
@@ -21,11 +20,15 @@ class Column:
     display_field_name: str
     _display_func: Callable[[Any], Any]
     _edit_field_name: str
+    _edit_func: Callable[[Any], None]
 
     def _fallback_display_func(self, device):
         if self.display_field_name:
             return getattr(device, self.display_field_name)
         return self.label
+
+    def _fallback_edit_func(self, device, value):
+        return setattr(device, self.edit_field_name, value)
 
     @property
     def display_func(self):
@@ -35,18 +38,34 @@ class Column:
     def edit_field_name(self):
         return self._edit_field_name or self.display_field_name
 
+    @property
+    def edit_func(self):
+        return self._edit_func or self._fallback_edit_func
+
+
+def pathize(device, value):
+    device.root_path = Path(value)
+
 
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
-        index: Column(label, display_field_name, display_func, edit_field_name)
-        for index, (label, display_field_name, display_func, edit_field_name) in enumerate((
-            ("Saved", "is_known", None, None),
-            ("Name", "name", None, None),
-            ("UID", "uid", lambda device: device.uid.hex(":", 1), None),
-            ("Root path", "root_path", lambda device: device.root_path or "", None),
-            ("...", None, None, "root_path"),
-            ("Available", "is_available", None, None),
-            ("Deploy", "is_deployable", None, None),
+        index: Column(
+            label,
+            display_field_name,
+            display_func,
+            edit_field_name,
+            edit_func
+        )
+        for index, (label, display_field_name, display_func, edit_field_name, edit_func)
+        in enumerate((
+            ("Saved", "is_known", None, None, None),
+            ("Name", "name", None, None, None),
+            ("UID", "uid", lambda device: device.uid.hex(":", 1), None, None),
+            ("Root path", "root_path", lambda device: device.root_path or "", None,
+            None),
+            ("...", None, None, "root_path", pathize),
+            ("Available", "is_available", None, None, None),
+            ("Deploy", "is_deployable", None, None, None),
             # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
         ))
     }
@@ -59,7 +78,6 @@ class TableModel(QtCore.QAbstractTableModel):
         key = list(self._data.keys())[index.row()]
         column = self.columns[index.column()]
         return column.display_func(self._data[key])
-
 
     def setData(self, index, value, role) -> bool:
         key = list(self._data.keys())[index.row()]

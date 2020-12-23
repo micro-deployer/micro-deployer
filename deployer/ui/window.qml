@@ -57,6 +57,7 @@ ApplicationWindow {
                 column: 3
                 delegate: TextField {
                     text: model.display
+                    onAccepted: model.edit = text
                 }
             }
             DelegateChoice {
@@ -80,7 +81,10 @@ ApplicationWindow {
                 delegate: Button {
                     text: "Deploy"
                     enabled: model.display
-                    onClicked: function() {this.enabled = false; application.deploy(model.row)}
+                    onClicked: function() {
+                        //this.enabled = false;
+                        application.deploy(model.row)
+                    }
                 }
             }
 //            DelegateChoice {

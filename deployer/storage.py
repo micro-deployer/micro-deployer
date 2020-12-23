@@ -8,13 +8,17 @@ from deployer.model import Application, Device
 
 
 def _serialize(device):
-    return {"name": device.name}
+    return {
+        "name": device.name,
+        "root_path": str(device.root_path),
+    }
 
 
 def _deserialize(device_uid, device_dict):
     return Device(
         uid=device_uid,
         name=device_dict["name"],
+        root_path=Path(device_dict["root_path"]),
         is_known=True
     )
 

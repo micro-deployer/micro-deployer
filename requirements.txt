@@ -5,3 +5,5 @@
 #    pip-compile
 #
 cuelib==0.2.0             # via -r requirements.in
+pyside6==6.0.0            # via -r requirements.in
+shiboken6==6.0.0          # via pyside6

@@ -35,6 +35,7 @@ class Device:
 @subscribe(Device.is_available)
 @subscribe(Device.is_known)
 @subscribe(Device.deployment_progress)
+@subscribe(Device.root_path)
 def _change(device, *_args):
     device.change()
 
