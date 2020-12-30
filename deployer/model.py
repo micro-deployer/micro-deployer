@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import NewType, Optional
 
 from cue import CueDict, publisher, subscribe
+from deployer.deployer import deploy
 
 DeviceUID = NewType("DeviceUID", bytes)
 
@@ -18,40 +19,69 @@ class Device:
     root_path: Optional[Path] = None
     is_known: bool = False
     is_available: bool = False
-    deployment_progress: Optional[int] = None
+    deployment_total: Optional[int] = None
+    deployment_progress: int = 0
+    deployment_exception: Optional[Exception] = None
 
     @publisher
     def change(self, field_name, value):
         pass
+
+    async def deploy(self):
+        self.deployment_exception = None
+        self.deployment_total = None
+        self.deployment_progress = 0
+        try:
+            async for self.deployment_total, self.deployment_progress in deploy(self):
+                pass
+        except Exception as exc:
+            self.deployment_exception = exc
 
 
 @subscribe(Device.uid)
 def _change_uid(device, value):
     device.change('uid', value)
 
+
 @subscribe(Device.ip)
 def _change_ip(device, value):
     device.change('ip', value)
+
 
 @subscribe(Device.name)
 def _change_name(device, value):
     device.change('name', value)
 
+
 @subscribe(Device.is_available)
 def _change_is_available(device, value):
     device.change('is_available', value)
+
 
 @subscribe(Device.is_known)
 def _change_is_known(device, value):
     device.change('is_known', value)
 
+
+@subscribe(Device.deployment_total)
+def _change_deployment_total(device, value):
+    device.change('deployment_total', value)
+
+
 @subscribe(Device.deployment_progress)
 def _change_deployment_progress(device, value):
     device.change('deployment_progress', value)
 
+
+@subscribe(Device.deployment_exception)
+def _change_deployment_exception(device, value):
+    device.change('deployment_exception', value)
+
+
 @subscribe(Device.root_path)
 def _change_root_path(device, value):
     device.change('root_path', value)
+
 
 class DeviceDict(CueDict):
     @subscribe(Device.is_known)

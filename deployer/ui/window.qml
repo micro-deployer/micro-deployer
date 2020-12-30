@@ -23,9 +23,13 @@ ApplicationWindow {
 
         model: application.devices
 
-
-
         delegate: DelegateChooser {
+            DelegateChoice {
+                row: 0
+                delegate: Label {
+                    text: model.display
+                }
+            }
             DelegateChoice {
                 column: 0
                 delegate: CheckBox {
@@ -63,6 +67,7 @@ ApplicationWindow {
             DelegateChoice {
                 column: 4
                 delegate: Button {
+                    enabled: false
                     text: model.display
                     onClicked: function() {model.edit = folderDialog.open()}
                 }
@@ -82,18 +87,23 @@ ApplicationWindow {
                     text: "Deploy"
                     enabled: model.display
                     onClicked: function() {
-                        //this.enabled = false;
                         application.deploy(model.row)
                     }
                 }
             }
-//            DelegateChoice {
-//                column: 6
-//                ProgressBar {
-//                    value: model.display==null?0:model.display
-//                    visible: model.display != null
-//                }
-//            }
+            DelegateChoice {
+                column: 7
+                delegate: ProgressBar {
+                    value: model.progress==null?0:model.progress
+                    z: 0
+                    Label {
+                        text: model.display
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        z: 1
+                    }
+                }
+            }
         }
     }
     function listProperty(item)

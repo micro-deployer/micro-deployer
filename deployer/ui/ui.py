@@ -11,7 +11,6 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
 from cue import subscribe
-import deployer.deployer
 from deployer.model import Application, Device, DeviceDict, DeviceUID
 
 
@@ -22,9 +21,9 @@ class Column:
     _display_func: Callable[[Any], Any]
     edit_field_name: Optional[str]
     _edit_func: Callable[[Any], None]
+    _progress_func: Callable[[Any], Any]
 
-
-    def _none_edit_func(self, device, value):
+    def _none_func(self, device, value):
         pass
 
     def _fallback_edit_func(self, device, value):
@@ -34,7 +33,6 @@ class Column:
     def display_func(self):
         return self._display_func or (lambda device: None)
 
-
     @property
     def edit_func(self):
         if self._edit_func:
@@ -42,11 +40,27 @@ class Column:
         elif self.edit_field_name:
             return self._fallback_edit_func
         else:
-            return self._none_edit_func
+            return self._none_func
+
+    @property
+    def progress_func(self):
+        if self._progress_func:
+            return self._progress_func
+        return self._none_func
+
+
+ProgressRole = QtCore.Qt.UserRole + 1
 
 
 def pathize(device, value):
     device.root_path = Path(value)
+
+
+def display_progress(device):
+    if device.deployment_progress == device.deployment_total and device.deployment_exception is None:
+        return "OK"
+    return device.deployment_exception or ""
+
 
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
@@ -55,24 +69,33 @@ class TableModel(QtCore.QAbstractTableModel):
             field_names,
             display_func,
             edit_field_name,
-            edit_func
+            edit_func,
+            progress_func,
         )
-        for index, (label, field_names, display_func, edit_field_name, edit_func)
+        for index, (
+        label, field_names, display_func, edit_field_name, edit_func, progress_func)
         in enumerate(
             (
                 ("Saved", ["is_known"], lambda device: device.is_known, "is_known",
+                None, None),
+                ("Name", ["name"], lambda device: device.name, "name", None, None),
+                ("UID", ["uid"], lambda device: device.uid.hex(":", 1), "uid", None,
                 None),
-                ("Name", ["name"], lambda device: device.name, "name", None),
-                ("UID", ["uid"], lambda device: device.uid.hex(":", 1), "uid", None),
-                ("Root path", ["root_path"], lambda device: str(device.root_path) or "",
-                "root_path", None),
-                ("...", [], None, "root_path", pathize),
+                ("Root path", ["root_path"], lambda device: str(device.root_path) if device.root_path else "",
+                "root_path", pathize, None),
+                ("", [], lambda device: "...", "root_path", pathize, None),
                 ("Available", ["is_available"], lambda device: device.is_available,
-                "is_available", None),
-                ("Deploy", ["is_available", "root_path"],
-                lambda device: device.is_available and bool(device.root_path), None,
-                None),
-                # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
+                "is_available", None, None),
+                ("Deploy", ["is_available", "root_path", "deployment_total",
+                    "deployment_progress"],
+                lambda device: device.is_available and bool(device.root_path) and (
+                        device.deployment_total is None or device.deployment_progress == device.deployment_total),
+                None,
+                None, None),
+                ("Progress",
+                ["deployment_total", "deployment_progress", "deployment_exception"],
+                display_progress, None, None, lambda
+                    device: device.deployment_progress * 100 / device.deployment_total if device.deployment_total else None)
             )
         )
     }
@@ -84,30 +107,60 @@ class TableModel(QtCore.QAbstractTableModel):
     def __init__(self, data):
         super().__init__()
         self._data = data
+        self.has_header = True
+
+    def roleNames(self):
+        print(super().roleNames())
+        return {
+            **super().roleNames(),
+            ProgressRole: b"progress",
+        }
+
+    def get_row_data(self, row_index):
+        if self.has_header:
+            data_index = row_index - 1
+        else:
+            data_index = row_index
+
+        key = list(self._data.keys())[data_index]
+        return self._data[key]
+
+    def get_row_index(self, key):
+        row_index = list(self._data.keys()).index(key)
+        if self.has_header:
+            return row_index + 1
+        return row_index
 
     def data(self, index, role):
-        key = list(self._data.keys())[index.row()]
+        if self.has_header and index.row() == 0:
+            return self.header_data(index.column(), role)
+        device = self.get_row_data(index.row())
         column = self.columns[index.column()]
-        return column.display_func(self._data[key])
+        if role == QtCore.Qt.DisplayRole:
+            return column.display_func(device)
+        elif role == ProgressRole:
+            return column.progress_func(device)
+        return None
 
     def setData(self, index, value, role) -> bool:
-        key = list(self._data.keys())[index.row()]
+        device = self.get_row_data(index.row())
         column = self.columns[index.column()]
-        setattr(self._data[key], column.edit_field_name, value)
+        column.edit_func(device, value)
         return True
 
-    # def headerData(self, section, orientation, role=Qt.DisplayRole):
-    #     """ Set the headers to be displayed. """
-    #     if role != Qt.DisplayRole:
-    #         return None
-    #
-    #     if orientation == Qt.Horizontal:
-    #         return self.columns[section].label
-    #     return None
+    def header_data(self, col_index, role):
+        """ Set the headers to be displayed. """
+        if role != QtCore.Qt.DisplayRole:
+            return None
+
+        return self.columns[col_index].label
 
     def rowCount(self, index):
         # The length of the outer list.
-        return len(self._data)
+        row_count = len(self._data)
+        if self.has_header:
+            return row_count + 1
+        return row_count
 
     def columnCount(self, index):
         return len(self.columns)
@@ -119,26 +172,25 @@ class TableModel(QtCore.QAbstractTableModel):
         device_id: DeviceUID,
         _device: Device
     ) -> None:
-        row_index = list(devices.keys()).index(device_id)
+        row_index = self.get_row_index(device_id)
         self.beginInsertRows(QModelIndex(), row_index, row_index)
         self.endInsertRows()
 
     @subscribe.before(Application.devices.__delitem__)
     def on_devices_delitem(self, devices: DeviceDict, device_id: DeviceUID) -> None:
-        row_index = list(devices.keys()).index(device_id)
+        row_index = self.get_row_index(device_id)
         self.beginRemoveRows(QModelIndex(), row_index, row_index)
         self.endRemoveRows()
 
     @subscribe.before(Device.change)
     def on_device_change(self, device: Device, field_name: str, value: Any) -> None:
-        row_index = list(self._data.keys()).index(device.uid)
+        row_index = self.get_row_index(device.uid)
         for col_index in self.col_indexes_by_field_name[field_name]:
             self.dataChanged.emit(
                 self.createIndex(row_index, col_index),
                 self.createIndex(row_index, col_index),
-                {QtCore.Qt.DisplayRole}
+                {QtCore.Qt.DisplayRole, ProgressRole}
             )
-
 
 
 class ApplicationProxy(QtCore.QObject):
@@ -157,9 +209,8 @@ class ApplicationProxy(QtCore.QObject):
 
     @QtCore.Slot(int)
     def deploy(self, device_index: int):
-        device_uid = list(self._application.devices.keys())[device_index]
-        device = self._application.devices[device_uid]
-        asyncio.create_task(deployer.deployer.deploy(device))
+        device = self._devices.get_row_data(device_index)
+        asyncio.create_task(device.deploy())
 
 
 async def run(application: Application) -> None:

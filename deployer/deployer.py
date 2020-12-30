@@ -7,18 +7,22 @@ from typing import AsyncIterator, Iterator, List
 
 
 async def deploy(device):
-    device.deployment_progress = 0
 
-    _, writer = await asyncio.open_connection(
+    reader, writer = await asyncio.open_connection(
         device.ip, device.port
     )
 
+    file_count = 0
     for filepath in _write(writer, device.root_path):
-        device.deployment_progress += 1
+        file_count += 1
 
+    yield file_count, 0
+    for file_counter in range(file_count):
+        deploy_file_counter_bytes = await reader.readexactly(1)
+        deploy_file_counter = struct.unpack('>B', deploy_file_counter_bytes)[0]
+        assert deploy_file_counter == file_counter
+        yield file_count, file_counter + 1
     writer.close()
-    await writer.drain()
-    await writer.wait_closed()
 
 
 def _write(writer, root_path: Path) -> Iterator[Path]:
