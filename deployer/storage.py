@@ -58,7 +58,7 @@ def _on_devices_setitem(devices, device_uid, device):
 
 
 @subscribe(Device.change)
-def _on_device_change(device):
+def _on_device_change(device, field_name, value):
     with _open() as devices_dict:
         if device.is_known:
             devices_dict[device.uid.hex()] = _serialize(device)

@@ -1,7 +1,8 @@
 import asyncio
+from collections import defaultdict
 import dataclasses
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, List, Optional
 
 from PySide6 import QtCore
 from PySide6.QtCore import QModelIndex
@@ -17,58 +18,68 @@ from deployer.model import Application, Device, DeviceDict, DeviceUID
 @dataclasses.dataclass
 class Column:
     label: str
-    display_field_name: str
+    field_names: List[str]
     _display_func: Callable[[Any], Any]
-    _edit_field_name: str
+    edit_field_name: Optional[str]
     _edit_func: Callable[[Any], None]
 
-    def _fallback_display_func(self, device):
-        if self.display_field_name:
-            return getattr(device, self.display_field_name)
-        return self.label
+
+    def _none_edit_func(self, device, value):
+        pass
 
     def _fallback_edit_func(self, device, value):
         return setattr(device, self.edit_field_name, value)
 
     @property
     def display_func(self):
-        return self._display_func or self._fallback_display_func
+        return self._display_func or (lambda device: None)
 
-    @property
-    def edit_field_name(self):
-        return self._edit_field_name or self.display_field_name
 
     @property
     def edit_func(self):
-        return self._edit_func or self._fallback_edit_func
+        if self._edit_func:
+            return self._edit_func
+        elif self.edit_field_name:
+            return self._fallback_edit_func
+        else:
+            return self._none_edit_func
 
 
 def pathize(device, value):
     device.root_path = Path(value)
 
-
 class TableModel(QtCore.QAbstractTableModel):
     columns = {
         index: Column(
             label,
-            display_field_name,
+            field_names,
             display_func,
             edit_field_name,
             edit_func
         )
-        for index, (label, display_field_name, display_func, edit_field_name, edit_func)
-        in enumerate((
-            ("Saved", "is_known", None, None, None),
-            ("Name", "name", None, None, None),
-            ("UID", "uid", lambda device: device.uid.hex(":", 1), None, None),
-            ("Root path", "root_path", lambda device: device.root_path or "", None,
-            None),
-            ("...", None, None, "root_path", pathize),
-            ("Available", "is_available", None, None, None),
-            ("Deploy", "is_deployable", None, None, None),
-            # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
-        ))
+        for index, (label, field_names, display_func, edit_field_name, edit_func)
+        in enumerate(
+            (
+                ("Saved", ["is_known"], lambda device: device.is_known, "is_known",
+                None),
+                ("Name", ["name"], lambda device: device.name, "name", None),
+                ("UID", ["uid"], lambda device: device.uid.hex(":", 1), "uid", None),
+                ("Root path", ["root_path"], lambda device: str(device.root_path) or "",
+                "root_path", None),
+                ("...", [], None, "root_path", pathize),
+                ("Available", ["is_available"], lambda device: device.is_available,
+                "is_available", None),
+                ("Deploy", ["is_available", "root_path"],
+                lambda device: device.is_available and bool(device.root_path), None,
+                None),
+                # ("", "deployment_progress", lambda device: x / 100 if x is not None else None),
+            )
+        )
     }
+    col_indexes_by_field_name = defaultdict(list)
+    for index, column in columns.items():
+        for field_name in column.field_names:
+            col_indexes_by_field_name[field_name].append(index)
 
     def __init__(self, data):
         super().__init__()
@@ -119,10 +130,15 @@ class TableModel(QtCore.QAbstractTableModel):
         self.endRemoveRows()
 
     @subscribe.before(Device.change)
-    def on_device_change(self, device: Device) -> None:
+    def on_device_change(self, device: Device, field_name: str, value: Any) -> None:
         row_index = list(self._data.keys()).index(device.uid)
-        self.beginRemoveRows(QModelIndex(), row_index, row_index)
-        self.endRemoveRows()
+        for col_index in self.col_indexes_by_field_name[field_name]:
+            self.dataChanged.emit(
+                self.createIndex(row_index, col_index),
+                self.createIndex(row_index, col_index),
+                {QtCore.Qt.DisplayRole}
+            )
+
 
 
 class ApplicationProxy(QtCore.QObject):

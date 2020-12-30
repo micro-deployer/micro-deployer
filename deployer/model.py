@@ -21,24 +21,37 @@ class Device:
     deployment_progress: Optional[int] = None
 
     @publisher
-    def change(self):
+    def change(self, field_name, value):
         pass
-
-    @property
-    def is_deployable(self):
-        return self.is_available and bool(self.root_path)
 
 
 @subscribe(Device.uid)
-@subscribe(Device.ip)
-@subscribe(Device.name)
-@subscribe(Device.is_available)
-@subscribe(Device.is_known)
-@subscribe(Device.deployment_progress)
-@subscribe(Device.root_path)
-def _change(device, *_args):
-    device.change()
+def _change_uid(device, value):
+    device.change('uid', value)
 
+@subscribe(Device.ip)
+def _change_ip(device, value):
+    device.change('ip', value)
+
+@subscribe(Device.name)
+def _change_name(device, value):
+    device.change('name', value)
+
+@subscribe(Device.is_available)
+def _change_is_available(device, value):
+    device.change('is_available', value)
+
+@subscribe(Device.is_known)
+def _change_is_known(device, value):
+    device.change('is_known', value)
+
+@subscribe(Device.deployment_progress)
+def _change_deployment_progress(device, value):
+    device.change('deployment_progress', value)
+
+@subscribe(Device.root_path)
+def _change_root_path(device, value):
+    device.change('root_path', value)
 
 class DeviceDict(CueDict):
     @subscribe(Device.is_known)
