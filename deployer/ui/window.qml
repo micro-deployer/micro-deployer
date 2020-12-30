@@ -64,16 +64,16 @@ ApplicationWindow {
                     onAccepted: model.edit = text
                 }
             }
+//            DelegateChoice {
+//                column: 4
+//                delegate: Button {
+//                    enabled: false
+//                    text: model.display
+//                    onClicked: function() {model.edit = folderDialog.open()}
+//                }
+//            }
             DelegateChoice {
                 column: 4
-                delegate: Button {
-                    enabled: false
-                    text: model.display
-                    onClicked: function() {model.edit = folderDialog.open()}
-                }
-            }
-            DelegateChoice {
-                column: 5
                 delegate: CheckBox {
                     checked: model.display
 //                    enabled: false
@@ -82,7 +82,7 @@ ApplicationWindow {
                 }
             }
             DelegateChoice {
-                column: 6
+                column: 5
                 delegate: Button {
                     text: "Deploy"
                     enabled: model.display
@@ -92,7 +92,7 @@ ApplicationWindow {
                 }
             }
             DelegateChoice {
-                column: 7
+                column: 6
                 delegate: ProgressBar {
                     value: model.progress==null?0:model.progress
                     z: 0

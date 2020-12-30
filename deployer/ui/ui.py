@@ -14,94 +14,96 @@ from cue import subscribe
 from deployer.model import Application, Device, DeviceDict, DeviceUID
 
 
-@dataclasses.dataclass
-class Column:
-    label: str
-    field_names: List[str]
-    _display_func: Callable[[Any], Any]
-    edit_field_name: Optional[str]
-    _edit_func: Callable[[Any], None]
-    _progress_func: Callable[[Any], Any]
 
-    def _none_func(self, device, value):
-        pass
-
-    def _fallback_edit_func(self, device, value):
-        return setattr(device, self.edit_field_name, value)
-
-    @property
-    def display_func(self):
-        return self._display_func or (lambda device: None)
-
-    @property
-    def edit_func(self):
-        if self._edit_func:
-            return self._edit_func
-        elif self.edit_field_name:
-            return self._fallback_edit_func
-        else:
-            return self._none_func
-
-    @property
-    def progress_func(self):
-        if self._progress_func:
-            return self._progress_func
-        return self._none_func
 
 
 ProgressRole = QtCore.Qt.UserRole + 1
 
 
-def pathize(device, value):
-    device.root_path = Path(value)
-
-
-def display_progress(device):
-    if device.deployment_progress == device.deployment_total and device.deployment_exception is None:
-        return "OK"
-    return device.deployment_exception or ""
-
-
 class TableModel(QtCore.QAbstractTableModel):
-    columns = {
-        index: Column(
-            label,
-            field_names,
-            display_func,
-            edit_field_name,
-            edit_func,
-            progress_func,
+    class Columns:
+        class SavedColumn:
+            label = "Saved"
+            fields = ["is_known"]
+
+            def display(self, device):
+                return device.is_known
+
+            def edit(self, device, is_known):
+                device.is_known = is_known
+
+        class NameColumn:
+            label = "Name"
+            fields = ["name"]
+
+            def display(self, device):
+                return device.name
+
+            def edit(self, device, name):
+                device.name = name
+
+        class UIDColumn:
+            label = "UID"
+            fields = ["uid"]
+
+            def display(self, device):
+                return device.uid.hex(":", 1)
+
+        class RootPathColumn:
+            label = "Root path"
+            fields = ["root_path"]
+
+            def display(self, device):
+                return str(device.root_path) if device.root_path else ""
+
+            def edit(self, device, root_path):
+                device.root_path = Path(root_path)
+
+        class IsAvailableColumn:
+            label = "Available"
+            fields = ["is_available"]
+
+            def display(self, device):
+                return device.is_available
+
+
+        class DeployColumn:
+            label = "Deploy"
+            fields = [
+                "is_available",
+                "root_path",
+                "deployment_total",
+                "deployment_progress"
+            ]
+
+            def display(self, device):
+                return device.is_available and bool(device.root_path) and (
+                    device.deployment_total is None or device.deployment_progress == device.deployment_total)
+
+        class ProgressColumn:
+            label = "Progress"
+            fields = [
+                "deployment_total", "deployment_progress", "deployment_exception"
+            ]
+
+            def display(self, device):
+                if device.deployment_progress == device.deployment_total and device.deployment_exception is None:
+                    return "OK"
+                return device.deployment_exception or ""
+
+            def progress(self, device):
+                return device.deployment_progress * 100 / device.deployment_total if device.deployment_total else None
+
+    columns = dict(
+        enumerate(
+            column()
+            for field_name, column in vars(Columns).items()
+            if type(column) == type
         )
-        for index, (
-        label, field_names, display_func, edit_field_name, edit_func, progress_func)
-        in enumerate(
-            (
-                ("Saved", ["is_known"], lambda device: device.is_known, "is_known",
-                None, None),
-                ("Name", ["name"], lambda device: device.name, "name", None, None),
-                ("UID", ["uid"], lambda device: device.uid.hex(":", 1), "uid", None,
-                None),
-                ("Root path", ["root_path"], lambda device: str(device.root_path) if device.root_path else "",
-                "root_path", pathize, None),
-                ("", [], lambda device: "...", "root_path", pathize, None),
-                ("Available", ["is_available"], lambda device: device.is_available,
-                "is_available", None, None),
-                ("Deploy", ["is_available", "root_path", "deployment_total",
-                    "deployment_progress"],
-                lambda device: device.is_available and bool(device.root_path) and (
-                        device.deployment_total is None or device.deployment_progress == device.deployment_total),
-                None,
-                None, None),
-                ("Progress",
-                ["deployment_total", "deployment_progress", "deployment_exception"],
-                display_progress, None, None, lambda
-                    device: device.deployment_progress * 100 / device.deployment_total if device.deployment_total else None)
-            )
-        )
-    }
+    )
     col_indexes_by_field_name = defaultdict(list)
     for index, column in columns.items():
-        for field_name in column.field_names:
+        for field_name in column.fields:
             col_indexes_by_field_name[field_name].append(index)
 
     def __init__(self, data):
@@ -110,7 +112,6 @@ class TableModel(QtCore.QAbstractTableModel):
         self.has_header = True
 
     def roleNames(self):
-        print(super().roleNames())
         return {
             **super().roleNames(),
             ProgressRole: b"progress",
@@ -137,15 +138,24 @@ class TableModel(QtCore.QAbstractTableModel):
         device = self.get_row_data(index.row())
         column = self.columns[index.column()]
         if role == QtCore.Qt.DisplayRole:
-            return column.display_func(device)
+            try:
+                return column.display(device)
+            except AttributeError:
+                return None
         elif role == ProgressRole:
-            return column.progress_func(device)
+            try:
+                return column.progress(device)
+            except AttributeError:
+                return None
         return None
 
     def setData(self, index, value, role) -> bool:
         device = self.get_row_data(index.row())
         column = self.columns[index.column()]
-        column.edit_func(device, value)
+        try:
+            column.edit(device, value)
+        except AttributeError:
+            pass
         return True
 
     def header_data(self, col_index, role):
