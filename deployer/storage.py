@@ -4,13 +4,14 @@ from pathlib import Path
 
 from cue import subscribe
 
-from deployer.model import Application, Device
+from deployer.models.application import Application
+from deployer.models.device import Device
 
 
 def _serialize(device):
     return {
         "name": device.name,
-        "root_path": str(device.root_path),
+        # "root_path": str(device.root_path),
     }
 
 
@@ -18,7 +19,7 @@ def _deserialize(device_uid, device_dict):
     return Device(
         uid=device_uid,
         name=device_dict["name"],
-        root_path=Path(device_dict["root_path"]),
+        # role=Path(device_dict["root_path"]),
         is_known=True
     )
 

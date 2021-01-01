@@ -9,7 +9,7 @@ import sys
 import time
 
 import deployer.deployer
-from deployer.model import Device
+from deployer.models.model import Device
 
 
 @pytest.fixture
@@ -46,8 +46,8 @@ def deployer_device_port(device_tmp_path: Path, free_tcp_port: int) -> int:
 
 
 @pytest.fixture
-def application() -> deployer.model.Application():
-    return deployer.model.Application()
+def application() -> deployer.models.model.Application():
+    return deployer.models.model.Application()
 
 
 @pytest.fixture

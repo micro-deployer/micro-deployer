@@ -2,7 +2,7 @@ import asyncio
 
 import deployer.listener
 import deployer.storage
-from deployer.model import Application
+from deployer.models.application import Application
 import deployer.ui
 
 

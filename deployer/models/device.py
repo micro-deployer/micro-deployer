@@ -1,10 +1,9 @@
-import asyncio
 import dataclasses
-from pathlib import Path
 from typing import NewType, Optional
 
 from cue import CueDict, publisher, subscribe
 from deployer.deployer import deploy
+from deployer.models.role import Role
 
 DeviceUID = NewType("DeviceUID", bytes)
 
@@ -16,7 +15,7 @@ class Device:
     name: str = ""
     ip: str = ""
     port: int = 0
-    root_path: Optional[Path] = None
+    role: Optional[Role] = None
     is_known: bool = False
     is_available: bool = False
     deployment_total: Optional[int] = None
@@ -78,9 +77,9 @@ def _change_deployment_exception(device, value):
     device.change('deployment_exception', value)
 
 
-@subscribe(Device.root_path)
-def _change_root_path(device, value):
-    device.change('root_path', value)
+@subscribe(Device.role)
+def _change_role(device, value):
+    device.change('role', value)
 
 
 class DeviceDict(CueDict):
@@ -106,28 +105,3 @@ class DeviceDict(CueDict):
             device.port = port
             device.is_available = True
         return device
-
-
-class Application:
-    devices = DeviceDict()
-
-    @publisher
-    def __init__(self) -> None:
-        self._stopped = asyncio.Event()
-
-    def stop(self) -> None:
-        self._stopped.set()
-
-    @property
-    def is_running(self) -> bool:
-        return not self._stopped.is_set()
-
-    @is_running.setter
-    def is_running(self, value: bool) -> None:
-        if value:
-            self._stopped.set()
-        else:
-            self._stopped.clear()
-
-    def __await__(self):
-        return self._stopped.wait().__await__()

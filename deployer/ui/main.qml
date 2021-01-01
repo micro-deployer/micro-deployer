@@ -5,16 +5,17 @@ import QtQuick.Controls
 import Qt.labs.platform
 import Qt.labs.qmlmodels
 
+
 ApplicationWindow {
+    id: mainWindow
     width: 800
     height: 400
     visible: true
     title: "Micro Deployer"
 
-    onClosing: function() {application.stop()}
+    onClosing: {application.stop()}
 
     TableView {
-        id: tableView
         anchors.fill: parent
         columnSpacing: 1
         rowSpacing: 1
@@ -25,13 +26,13 @@ ApplicationWindow {
 
         delegate: DelegateChooser {
             DelegateChoice {
-                row: 0
+                row: application.devices.header
                 delegate: Label {
                     text: model.display
                 }
             }
             DelegateChoice {
-                column: 0
+                column: application.devices.columns.IsSaved
                 delegate: CheckBox {
                     checked: model.display
                     onToggled: model.edit = checked
@@ -39,7 +40,7 @@ ApplicationWindow {
                 }
             }
              DelegateChoice {
-                column: 1
+                column: application.devices.columns.Name
                 delegate: TextField {
                     text: model.display
                     selectByMouse: true
@@ -48,7 +49,7 @@ ApplicationWindow {
                 }
             }
             DelegateChoice {
-                column: 2
+                column: application.devices.columns.UID
                 delegate: TextField {
                     text: model.display
                     readOnly: true
@@ -57,13 +58,13 @@ ApplicationWindow {
 //                    onAccepted: model.display = text
                 }
             }
-            DelegateChoice {
-                column: 3
-                delegate: TextField {
-                    text: model.display
-                    onAccepted: model.edit = text
-                }
-            }
+//            DelegateChoice {
+//                column: devices.columns.UID
+//                delegate: TextField {
+//                    text: model.display
+//                    onAccepted: model.edit = text
+//                }
+//            }
 //            DelegateChoice {
 //                column: 4
 //                delegate: Button {
@@ -73,7 +74,7 @@ ApplicationWindow {
 //                }
 //            }
             DelegateChoice {
-                column: 4
+                column: application.devices.columns.IsAvailable
                 delegate: CheckBox {
                     checked: model.display
 //                    enabled: false
@@ -82,7 +83,7 @@ ApplicationWindow {
                 }
             }
             DelegateChoice {
-                column: 5
+                column: application.devices.columns.Deploy
                 delegate: Button {
                     text: "Deploy"
                     enabled: model.display
@@ -92,7 +93,7 @@ ApplicationWindow {
                 }
             }
             DelegateChoice {
-                column: 6
+                column: application.devices.columns.Progress
                 delegate: ProgressBar {
                     value: model.progress==null?0:model.progress
                     z: 0
@@ -111,9 +112,22 @@ ApplicationWindow {
         for (var p in item)
         console.log(p + ": " + item[p]);
     }
-    FolderDialog {
-        id: folderDialog
-        options: FolderDialog.ShowDirsOnly
+//    FolderDialog {
+//        id: folderDialog
+//        options: FolderDialog.ShowDirsOnly
+//    }
+    Button {
+        text: "Roles"
+        onClicked: {
+            rolesWindow.visible = true
+//            var component = Qt.createComponent("roles.qml");
+//            win = component.createObject(mainWindow);
+//            win.show();
+        }
+    }
+    RolesWindow {
+        id: rolesWindow
+        visible: false
     }
 }
 

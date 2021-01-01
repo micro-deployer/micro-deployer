@@ -6,7 +6,8 @@ import socket
 import struct
 from typing import Tuple
 
-from deployer.model import Application, DeviceUID
+from deployer.models.application import Application
+from deployer.models.device import DeviceUID
 
 
 def _multicast_socket(multicast_group: str, port: int) -> socket.socket:
